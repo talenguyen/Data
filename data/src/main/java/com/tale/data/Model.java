@@ -5,14 +5,16 @@ import java.util.List;
 import rx.Observable;
 
 /**
- * Created by tale on 5/4/15.
+ * Created by tale on 5/11/15.
  */
 public interface Model<T> {
 
+    Observable<T> getById(String id);
+
     Observable<List<T>> getAll();
 
-    Observable<Boolean> save(T item);
+    Observable<Boolean> save(T data);
 
-    Observable<Boolean> delete(T item);
+    Observable<Boolean> saveAll(List<T> dataSet);
 
 }
