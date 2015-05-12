@@ -109,7 +109,7 @@ public class Repository<T> {
                 .map(new Func1<List<T>, DataPackage<List<T>>>() {
                     @Override
                     public DataPackage<List<T>> call(List<T> ts) {
-                        return new DataPackage<List<T>>(Source.Cache, ts);
+                        return new DataPackage<>(Source.Cache, ts);
                     }
                 });
         Observable.mergeDelayError(remoteStream, localStream)
