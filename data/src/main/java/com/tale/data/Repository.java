@@ -45,7 +45,7 @@ public class Repository<T> {
         return listItemDeliver.asObservable();
     }
 
-    public void getById(String id) {
+    public void fetchItem(String id) {
         final Observable<DataPackage<T>> remoteStream = remoteModel.getById(id)
                 .doOnNext(new Action1<T>() {
                     @Override
@@ -89,7 +89,7 @@ public class Repository<T> {
                 });
     }
 
-    public void getAll() {
+    public void pull() {
         final Observable<DataPackage<List<T>>> remoteStream = remoteModel.getAll()
                 .doOnNext(new Action1<List<T>>() {
                     @Override

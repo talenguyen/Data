@@ -24,7 +24,6 @@ import butterknife.InjectView;
 import retrofit.RestAdapter;
 import rx.Observer;
 import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -62,26 +61,6 @@ public class UsersFragment extends Fragment {
 
         userRepository = new Repository<>(new LocalModel(getActivity().getApplication()), new RemoteModel(gitApi));
 
-        userRepository.getAll()
-                .subscribeOn(Schedulers.computation())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<List<User>>() {
-                    @Override
-                    public void onCompleted() {
-
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-
-                    }
-
-                    @Override
-                    public void onNext(List<User> users) {
-                        usersAdapter.changeDataSet(users);
-                    }
-                });
-
         userRepository.listItemObservable()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Observer<DataPackage<List<User>>>() {
@@ -104,6 +83,7 @@ public class UsersFragment extends Fragment {
                     }
                 });
 
+        userRepository.pull();
 
         return view;
     }
