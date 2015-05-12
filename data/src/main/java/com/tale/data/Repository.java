@@ -6,14 +6,16 @@ import java.util.List;
 
 import rx.Observable;
 import rx.Observer;
+import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
+import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 import rx.subjects.Subject;
 
 /**
  * Created by tale on 5/11/15.
  */
-public class Repository<T> implements Model<T> {
+public class Repository<T> {
 
     private static final String TAG = Repository.class.getSimpleName();
 
@@ -43,38 +45,33 @@ public class Repository<T> implements Model<T> {
         return listItemDeliver.asObservable();
     }
 
-
-    @Override
-    public Observable<T> getById(String id) {
-        remoteModel.getById(id)
-                .subscribeOn(Schedulers.computation())
-                .subscribe(new Observer<T>() {
-
+    public void getById(String id) {
+        final Observable<DataPackage<T>> remoteStream = remoteModel.getById(id)
+                .doOnNext(new Action1<T>() {
                     @Override
-                    public void onCompleted() {
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        singleItemDeliver.send(new DataPackage<T>(Source.Network, null));
-                    }
-
-                    @Override
-                    public void onNext(final T t) {
-                        singleItemDeliver.send(new DataPackage<T>(Source.Network, t));
+                    public void call(T t) {
                         cacheModel.save(t)
                                 .subscribeOn(Schedulers.io())
                                 .subscribe(cacheAction);
                     }
+                })
+                .map(new Func1<T, DataPackage<T>>() {
+                    @Override
+                    public DataPackage<T> call(T t) {
+                        return new DataPackage<T>(Source.Network, t);
+                    }
                 });
-        return cacheModel.getById(id);
-    }
-
-    @Override
-    public Observable<List<T>> getAll() {
-        remoteModel.getAll()
+        final Observable<DataPackage<T>> localStream = cacheModel.getById(id)
+                .map(new Func1<T, DataPackage<T>>() {
+                    @Override
+                    public DataPackage<T> call(T t) {
+                        return new DataPackage<T>(Source.Cache, t);
+                    }
+                });
+        Observable.mergeDelayError(remoteStream, localStream)
                 .subscribeOn(Schedulers.computation())
-                .subscribe(new Observer<List<T>>() {
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<DataPackage<T>>() {
                     @Override
                     public void onCompleted() {
 
@@ -82,27 +79,57 @@ public class Repository<T> implements Model<T> {
 
                     @Override
                     public void onError(Throwable e) {
-                        listItemDeliver.send(new DataPackage<List<T>>(Source.Network, null));
+                        singleItemDeliver.send(null);
                     }
 
                     @Override
-                    public void onNext(List<T> ts) {
-                        listItemDeliver.send(new DataPackage<>(Source.Network, ts));
+                    public void onNext(DataPackage<T> dataPackage) {
+                        singleItemDeliver.send(dataPackage);
+                    }
+                });
+    }
+
+    public void getAll() {
+        final Observable<DataPackage<List<T>>> remoteStream = remoteModel.getAll()
+                .doOnNext(new Action1<List<T>>() {
+                    @Override
+                    public void call(List<T> ts) {
                         cacheModel.saveAll(ts)
                                 .subscribeOn(Schedulers.io())
                                 .subscribe(cacheAction);
                     }
+                })
+                .map(new Func1<List<T>, DataPackage<List<T>>>() {
+                    @Override
+                    public DataPackage<List<T>> call(List<T> ts) {
+                        return new DataPackage<>(Source.Network, ts);
+                    }
                 });
-        return cacheModel.getAll();
+        final Observable<DataPackage<List<T>>> localStream = cacheModel.getAll()
+                .map(new Func1<List<T>, DataPackage<List<T>>>() {
+                    @Override
+                    public DataPackage<List<T>> call(List<T> ts) {
+                        return new DataPackage<List<T>>(Source.Cache, ts);
+                    }
+                });
+        Observable.mergeDelayError(remoteStream, localStream)
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<DataPackage<List<T>>>() {
+                    @Override
+                    public void onCompleted() {
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        listItemDeliver.send(null);
+                    }
+
+                    @Override
+                    public void onNext(DataPackage<List<T>> listDataPackage) {
+                        listItemDeliver.send(listDataPackage);
+                    }
+                });
     }
 
-    @Override
-    public Observable<Boolean> save(T data) {
-        return remoteModel.save(data);
-    }
-
-    @Override
-    public Observable<Boolean> saveAll(List<T> dataSet) {
-        return remoteModel.saveAll(dataSet);
-    }
 }
